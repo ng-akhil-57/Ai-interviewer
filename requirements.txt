@@ -1,0 +1,367 @@
+"""
+app.py — AI Interviewer Flask Backend
+Complete server with all routes:
+  POST /upload-resume     → analyse resume, store session
+  POST /get-questions     → generate personalised questions
+  POST /evaluate-answer   → score + feedback via Claude
+  POST /save-report       → store final report to disk
+  GET  /get-report/<id>   → fetch stored report
+  GET  /health            → health check
+"""
+
+import os
+import json
+import uuid
+import time
+from datetime import datetime
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+# Local modules
+from resume_analyser import ResumeAnalyser
+from question_generator import QuestionGenerator
+from answer_evaluator import evaluate_answer, compute_overall_score
+
+# ── Init ───────────────────────────────────────────────────────────────────
+load_dotenv()
+
+app = Flask(
+    __name__,
+    static_folder="../static",
+    template_folder="../frontend"
+)
+CORS(app)
+
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max upload
+app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(__file__), "../uploads")
+app.config["REPORTS_FOLDER"] = os.path.join(os.path.dirname(__file__), "../reports")
+
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(app.config["REPORTS_FOLDER"], exist_ok=True)
+
+# In-memory session store (use Redis/DB in production)
+sessions = {}
+
+analyser = ResumeAnalyser()
+generator = QuestionGenerator()
+
+
+# ── Serve Frontend ─────────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    return send_from_directory("../frontend", "index.html")
+
+@app.route("/interview")
+def interview():
+    return send_from_directory("../frontend", "interview.html")
+
+@app.route("/report")
+def report():
+    return send_from_directory("../frontend", "report.html")
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    return send_from_directory("../static", filename)
+
+
+# ── Health Check ───────────────────────────────────────────────────────────
+
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "anthropic_key": "configured" if os.getenv("ANTHROPIC_API_KEY") else "missing"
+    })
+
+
+# ── Upload & Analyse Resume ────────────────────────────────────────────────
+
+@app.route("/upload-resume", methods=["POST"])
+def upload_resume():
+    """
+    Accepts a PDF file or base64 text.
+    Returns: session_id + resume analysis
+    """
+    try:
+        session_id = str(uuid.uuid4())
+
+        # ── File upload ──
+        if "file" in request.files:
+            file = request.files["file"]
+            if not file.filename.endswith(".pdf"):
+                return jsonify({"error": "Only PDF files accepted"}), 400
+
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], f"{session_id}.pdf")
+            file.save(filepath)
+
+            analysis = analyser.analyse_from_file(filepath)
+
+        # ── Text / JSON body ──
+        elif request.is_json:
+            data = request.get_json()
+            text = data.get("text", "") or data.get("resume_text", "")
+            if not text:
+                return jsonify({"error": "No resume text provided"}), 400
+            analysis = analyser.analyse_from_text(text)
+
+        else:
+            return jsonify({"error": "No file or text provided"}), 400
+
+        # Store session
+        sessions[session_id] = {
+            "analysis": analysis,
+            "created_at": time.time(),
+            "questions": [],
+            "answers": [],
+        }
+
+        return jsonify({
+            "session_id": session_id,
+            "analysis": analysis,
+            "message": "Resume analysed successfully"
+        })
+
+    except Exception as e:
+        print(f"[/upload-resume] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Get Questions ──────────────────────────────────────────────────────────
+
+@app.route("/get-questions", methods=["POST"])
+def get_questions():
+    """
+    Generate interview questions for a session.
+    Body: { session_id, num_questions (optional) }
+    Returns: { questions: [str] }
+    """
+    try:
+        data = request.get_json() or {}
+        session_id = data.get("session_id", "")
+        num_questions = int(data.get("num_questions", 10))
+        num_questions = max(5, min(20, num_questions))  # clamp 5-20
+
+        # Get analysis from session (or generate demo)
+        session = sessions.get(session_id)
+        if session:
+            analysis = session["analysis"]
+        else:
+            # Demo mode — use provided analysis if available
+            analysis = data.get("analysis") or {
+                "name": "Candidate",
+                "domain": "Data Science",
+                "skills": ["Python", "Machine Learning", "Deep Learning"],
+                "experience": ["Fresher"],
+                "projects": [],
+                "education": ""
+            }
+
+        questions = generator.generate_questions(
+            analysis=analysis,
+            num_questions=num_questions
+        )
+
+        # Cache in session
+        if session:
+            session["questions"] = questions
+
+        return jsonify({
+            "questions": questions,
+            "count": len(questions),
+            "domain": analysis.get("domain", ""),
+        })
+
+    except Exception as e:
+        print(f"[/get-questions] Error: {e}")
+        # Return fallback questions so interview can still run
+        return jsonify({
+            "questions": get_fallback_questions(data.get("domain", "")),
+            "count": 10,
+            "fallback": True
+        })
+
+
+# ── Evaluate Answer ────────────────────────────────────────────────────────
+
+@app.route("/evaluate-answer", methods=["POST"])
+def evaluate_answer_route():
+    """
+    Evaluate a candidate's answer via Claude.
+    Body: { question, answer, domain, skills, session_id }
+    Returns: { score, feedback, dimensions, strengths, improvements }
+    """
+    try:
+        data = request.get_json() or {}
+        question = data.get("question", "")
+        answer = data.get("answer", "")
+        domain = data.get("domain", "")
+        skills = data.get("skills", [])
+
+        if not question:
+            return jsonify({"error": "Question is required"}), 400
+
+        result = evaluate_answer(question, answer, domain, skills)
+
+        # Store in session if available
+        session_id = data.get("session_id")
+        if session_id and session_id in sessions:
+            sessions[session_id]["answers"].append({
+                "question": question,
+                "answer": answer,
+                **result
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"[/evaluate-answer] Error: {e}")
+        return jsonify({
+            "score": 50,
+            "feedback": "Thank you for your answer. Let's continue to the next question.",
+            "dimensions": {"accuracy": 50, "depth": 50, "clarity": 50, "relevance": 50},
+            "strengths": [],
+            "improvements": []
+        })
+
+
+# ── Save Report ────────────────────────────────────────────────────────────
+
+@app.route("/save-report", methods=["POST"])
+def save_report():
+    """
+    Save final interview report to disk.
+    Body: complete report JSON
+    Returns: { report_id, saved_path }
+    """
+    try:
+        report = request.get_json() or {}
+        report_id = str(uuid.uuid4())
+        report["report_id"] = report_id
+        report["saved_at"] = datetime.now().isoformat()
+
+        # Overall score from Q&A evaluations
+        if "qa" in report and report["qa"]:
+            aggregate = compute_overall_score(report["qa"])
+            if "overall_score" not in report or report["overall_score"] == 0:
+                report["overall_score"] = aggregate["overall"]
+            if "dimensions" not in report:
+                report["dimensions"] = aggregate
+
+        filepath = os.path.join(app.config["REPORTS_FOLDER"], f"{report_id}.json")
+        with open(filepath, "w") as f:
+            json.dump(report, f, indent=2)
+
+        print(f"[/save-report] Saved report: {report_id}")
+        return jsonify({"report_id": report_id, "message": "Report saved"})
+
+    except Exception as e:
+        print(f"[/save-report] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Get Report ─────────────────────────────────────────────────────────────
+
+@app.route("/get-report/<report_id>", methods=["GET"])
+def get_report(report_id):
+    """Fetch a previously saved report."""
+    try:
+        # Sanitise report_id
+        report_id = report_id.replace("/", "").replace("..", "")
+        filepath = os.path.join(app.config["REPORTS_FOLDER"], f"{report_id}.json")
+
+        if not os.path.exists(filepath):
+            return jsonify({"error": "Report not found"}), 404
+
+        with open(filepath) as f:
+            report = json.load(f)
+        return jsonify(report)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── List Reports ───────────────────────────────────────────────────────────
+
+@app.route("/list-reports", methods=["GET"])
+def list_reports():
+    """List all saved reports (for admin/review purposes)."""
+    try:
+        folder = app.config["REPORTS_FOLDER"]
+        reports = []
+        for fname in sorted(os.listdir(folder), reverse=True):
+            if fname.endswith(".json"):
+                fpath = os.path.join(folder, fname)
+                with open(fpath) as f:
+                    r = json.load(f)
+                reports.append({
+                    "report_id": r.get("report_id", fname[:-5]),
+                    "name": r.get("name", "Unknown"),
+                    "domain": r.get("domain", ""),
+                    "overall_score": r.get("overall_score", 0),
+                    "saved_at": r.get("saved_at", ""),
+                })
+        return jsonify({"reports": reports, "count": len(reports)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── Fallback Questions Helper ──────────────────────────────────────────────
+
+def get_fallback_questions(domain: str = "") -> list:
+    domain = (domain or "").lower()
+
+    if any(k in domain for k in ["data", "ml", "machine", "ai", "deep"]):
+        return [
+            "Explain the difference between supervised and unsupervised learning.",
+            "What is overfitting, and how do you prevent it?",
+            "How does backpropagation work in neural networks?",
+            "What evaluation metrics would you use for a classification problem?",
+            "Explain the bias-variance tradeoff.",
+            "How would you handle imbalanced datasets?",
+            "What is transfer learning and when would you use it?",
+            "Explain how transformer models work at a high level.",
+            "Walk me through a typical data science project pipeline.",
+            "Describe a real project where you applied machine learning."
+        ]
+
+    if "web" in domain or "frontend" in domain or "react" in domain:
+        return [
+            "Explain the difference between REST and GraphQL.",
+            "How does the virtual DOM work in React?",
+            "What is async/await and how does it differ from Promises?",
+            "Explain CORS and how to handle it.",
+            "What is state management and when would you use Redux?",
+            "How do you optimise a slow-loading web page?",
+            "Explain the CSS box model.",
+            "What are web accessibility best practices?",
+            "How would you secure a web application?",
+            "Describe a challenging frontend feature you built."
+        ]
+
+    return [
+        "Tell me about yourself and your technical background.",
+        "What are your strongest technical skills?",
+        "Describe a challenging project you worked on.",
+        "How do you approach learning new technologies?",
+        "Explain a complex technical concept in simple terms.",
+        "How do you handle working under pressure?",
+        "Describe your experience with teamwork and collaboration.",
+        "What is your debugging process for difficult bugs?",
+        "Where do you see yourself in 3 years?",
+        "Do you have any questions for me about this role?"
+    ]
+
+
+# ── Run ────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    print("=" * 55)
+    print(" 🤖 AI Interviewer Backend — Starting...")
+    print(f" 📁 Uploads: {app.config['UPLOAD_FOLDER']}")
+    print(f" 📊 Reports: {app.config['REPORTS_FOLDER']}")
+    print(f" 🔑 API Key: {'✅ Set' if os.getenv('ANTHROPIC_API_KEY') else '❌ Missing — set in .env'}")
+    print("=" * 55)
+    app.run(debug=True, host="0.0.0.0", port=5000)

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Report — AI Interviewer</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { background: var(--bg); }
+
+    .report-wrap {
+      max-width: 960px;
+      margin: 90px auto 60px;
+      padding: 0 24px;
+    }
+
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .report-title {
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text);
+    }
+    .report-title span { color: var(--accent); }
+    .report-meta { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .export-btn {
+      background: transparent;
+      border: 1px solid var(--border-glow);
+      color: var(--accent);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .export-btn:hover { background: rgba(108,99,255,.08); border-color: var(--accent); }
+
+    .score-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .score-tile {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px 18px;
+      text-align: center;
+      transition: border-color .2s;
+    }
+    .score-tile:hover { border-color: var(--accent); }
+    .score-tile-num {
+      font-family: var(--font-head);
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .score-tile-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      font-weight: 600;
+    }
+
+    .report-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .card-title {
+      font-family: var(--font-head);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dim-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .dim-row-label { width: 120px; font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+    .dim-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 8px; overflow: hidden; }
+    .dim-bar-fill {
+      height: 100%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width .8s ease;
+    }
+    .dim-bar-score { width: 36px; text-align: right; font-size: 13px; font-weight: 700; color: var(--accent-2); flex-shrink: 0; }
+
+    .nlp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .nlp-tile {
+      background: rgba(108,99,255,.06);
+      border: 1px solid rgba(108,99,255,.15);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+    .nlp-tile-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+    .nlp-tile-value { font-family: var(--font-head); font-size: 28px; font-weight: 800; line-height: 1; }
+    .nlp-tile-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    .keyword-cloud { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .kw-tag {
+      background: rgba(167,139,250,.1);
+      border: 1px solid rgba(167,139,250,.25);
+      color: var(--accent-2);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background .2s;
+    }
+    .kw-tag:hover { background: rgba(167,139,250,.2); }
+    .kw-tag.big   { font-size: 15px; padding: 6px 18px; }
+    .kw-tag.small { font-size: 11px; padding: 4px 10px; opacity: .75; }
+
+    .sentiment-bar-wrap {
+      height: 10px;
+      background: linear-gradient(90deg, #f87171, #94a3b8 50%, #4ade80);
+      border-radius: 10px;
+      position: relative;
+      margin: 12px 0 6px;
+    }
+    .sentiment-needle {
+      position: absolute;
+      top: -4px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid var(--accent);
+      transform: translateX(-50%);
+      transition: left .6s ease;
+      box-shadow: 0 0 8px rgba(108,99,255,.5);
+    }
+    .sentiment-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+
+    .qa-item { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 14px; }
+    .qa-q {
+      background: rgba(108,99,255,.06);
+      padding: 14px 18px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .qa-score-badge {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: rgba(108,99,255,.15);
+      white-space: nowrap;
+      margin-left: 12px;
+      flex-shrink: 0;
+    }
+    .qa-a {
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.7;
+      display: none;
+      border-top: 1px solid var(--border);
+    }
+    .qa-item.open .qa-a { display: block; }
+    .qa-feedback {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: rgba(108,99,255,.05);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--accent-2);
+      line-height: 1.6;
+    }
+    .qa-keywords { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: 14px;
+      font-family: var(--font-head);
+    }
+    .risk-low    { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.3);  color: #4ade80; }
+    .risk-medium { background: rgba(251,191,36,.1);  border: 1px solid rgba(251,191,36,.3);  color: #fbbf24; }
+    .risk-high   { background: rgba(239,68,68,.1);   border: 1px solid rgba(239,68,68,.3);   color: #f87171; }
+
+    .proctor-events { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .proctor-event {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--border);
+    }
+    .proctor-event .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .report-loading { text-align: center; padding: 80px 0; color: var(--text-muted); }
+    .report-loading .spin {
+      font-size: 48px;
+      display: block;
+      animation: spin 1.5s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .report-empty { text-align: center; padding: 80px 0; }
+    .report-empty a { color: var(--accent); font-weight: 600; text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .score-summary { grid-template-columns: repeat(2,1fr); }
+      .nlp-grid      { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-logo">AI<span>Interviewer</span></div>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/interview">Interview</a>
+      <a href="/report" class="active" aria-current="page">Reports</a>
+    </div>
+  </nav>
+
+  <main class="report-wrap" role="main" aria-label="Interview report">
+
+    <div class="report-loading" id="report-loading" role="status" aria-live="polite">
+      <span class="spin" aria-hidden="true">⟳</span>
+      Loading your report…
+    </div>
+
+    <div class="report-empty" id="report-empty" style="display:none">
+      <p style="font-size:48px;margin-bottom:16px">📋</p>
+      <p style="color:var(--text-muted);margin-bottom:16px">No interview data found.</p>
+      <a href="/">Start an interview →</a>
+    </div>
+
+    <div id="report-content" style="display:none">
+
+      <div class="report-header">
+        <div>
+          <div class="report-title">Interview <span>Report</span></div>
+          <div class="report-meta" id="report-meta">—</div>
+        </div>
+        <button class="export-btn" id="export-btn" aria-label="Export report as JSON">↓ Export JSON</button>
+      </div>
+
+      <div class="score-summary" role="region" aria-label="Score summary">
+        <div class="score-tile">
+          <div class="score-tile-num" id="tile-overall" style="color:var(--accent)">—</div>
+          <div class="score-tile-label">Overall</div>
+        </div>
+        <div class="score-tile">
+          <div class="score-tile-num" id="tile-technical" style="color:#4ade80">—</div>
+          <div class="score-tile-label">Technical</div>
+        </div>
+        <div class="score-tile">
+          <div class="score-tile-num" id="tile-communication" style="color:#fbbf24">—</div>
+          <div class="score-tile-label">Communication</div>
+        </div>
+        <div class="score-tile">
+          <div class="score-tile-num" id="tile-confidence" style="color:#a78bfa">—</div>
+          <div class="score-tile-label">Confidence</div>
+        </div>
+        <div class="score-tile">
+          <div class="score-tile-num" id="tile-depth" style="color:#38bdf8">—</div>
+          <div class="score-tile-label">Depth</div>
+        </div>
+      </div>
+
+      <div class="report-card" role="region" aria-label="Dimension breakdown">
+        <div class="card-title">📊 Dimension Breakdown</div>
+        <div id="dim-breakdown"></div>
+      </div>
+
+      <div class="report-card" role="region" aria-label="NLP voice insights">
+        <div class="card-title">🧠 NLP Voice Insights</div>
+        <div class="nlp-grid">
+          <div class="nlp-tile">
+            <div class="nlp-tile-label">Voice Confidence</div>
+            <div class="nlp-tile-value" id="nlp-confidence" style="color:#4ade80">—</div>
+            <div class="nlp-tile-sub">Based on pace, hesitation &amp; vocabulary</div>
+          </div>
+          <div class="nlp-tile">
+            <div class="nlp-tile-label">Filler Words</div>
+            <div class="nlp-tile-value" id="nlp-fillers" style="color:#fbbf24">—</div>
+            <div class="nlp-tile-sub">um, uh, like… removed from transcript</div>
+          </div>
+          <div class="nlp-tile">
+            <div class="nlp-tile-label">Avg WPM</div>
+            <div class="nlp-tile-value" id="nlp-wpm" style="color:#a78bfa">—</div>
+            <div class="nlp-tile-sub">110–160 is ideal for interviews</div>
+          </div>
+          <div class="nlp-tile">
+            <div class="nlp-tile-label">Tone</div>
+            <div class="nlp-tile-value" id="nlp-sentiment" style="color:#38bdf8">—</div>
+            <div class="nlp-tile-sub">Overall sentiment across all answers</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;font-size:13px;color:var(--text-muted)">Sentiment Spectrum</div>
+        <div class="sentiment-bar-wrap" aria-label="Sentiment gauge">
+          <div class="sentiment-needle" id="sentiment-needle" style="left:50%"></div>
+        </div>
+        <div class="sentiment-labels">
+          <span>Negative</span><span>Neutral</span><span>Positive</span>
+        </div>
+
+        <div style="margin-top:24px;margin-bottom:8px;font-size:13px;color:var(--text-muted)">
+          Top Keywords Across All Answers
+        </div>
+        <div class="keyword-cloud" id="keyword-cloud" aria-label="Keyword cloud"></div>
+      </div>
+
+      <div class="report-card" role="region" aria-label="Question by question breakdown">
+        <div class="card-title">🗂️ Question-by-Question Breakdown</div>
+        <div id="qa-list"></div>
+      </div>
+
+      <div class="report-card" role="region" aria-label="Proctoring summary">
+        <div class="card-title">🛡️ Proctoring Summary</div>
+        <div id="risk-row" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+          <span class="risk-badge risk-low" id="risk-badge">🟢 Low Risk</span>
+          <span style="font-size:13px;color:var(--text-muted)" id="risk-desc">No significant integrity issues detected.</span>
+        </div>
+        <div class="proctor-events" id="proctor-events"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+  (function () {
+
+    // ── Load report data ──────────────────────────────────────
+    // Primary: sessionStorage (written by interview.js on finish)
+    // Fallback: fetch from /get-report?report_id= (for direct URL access)
+
+    async function loadReport() {
+
+      let reportData = null;
+
+      // Try sessionStorage first
+      try {
+        const raw = sessionStorage.getItem('interview_report');
+        if (raw) reportData = JSON.parse(raw);
+      } catch (_) {}
+
+      // Fallback: fetch from backend using URL param
+      if (!reportData) {
+        const params   = new URLSearchParams(window.location.search);
+        const reportId = params.get('report_id');
+        if (reportId) {
+          try {
+            const resp = await fetch(`/get-report/${encodeURIComponent(reportId)}`);
+            const json = await resp.json();
+            if (json.success && json.report) reportData = json.report;
+          } catch (_) {}
+        }
+      }
+
+      document.getElementById('report-loading').style.display = 'none';
+
+      // Guard: no data or empty evaluations
+      if (
+        !reportData ||
+        (!reportData.evaluations || !reportData.evaluations.length) &&
+        (!reportData.answers     || !reportData.answers.length)
+      ) {
+        document.getElementById('report-empty').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('report-content').style.display = 'block';
+      renderReport(reportData);
+    }
+
+    // ── Render ────────────────────────────────────────────────
+
+    function renderReport(reportData) {
+
+      // Support both 'evaluations' and 'answers' key names
+      const evals    = reportData.evaluations || reportData.answers || [];
+      const scores   = reportData.scores   || {};
+      const nlp      = reportData.nlp      || {};
+      const proctor  = reportData.proctor  || {};
+      const analysis = reportData.analysis || {};
+
+      // ── Meta ─────────────────────────────────────────────────
+      const date = new Date(reportData.timestamp || Date.now());
+      document.getElementById('report-meta').textContent =
+        `${analysis.name || 'Candidate'} · ${analysis.domain || 'General'} · ` +
+        date.toLocaleDateString('en-IN', { dateStyle: 'medium' });
+
+      // ── Score tiles ──────────────────────────────────────────
+      const setTile = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = (val !== undefined && val !== null) ? val : '—';
+      };
+      setTile('tile-overall',       scores.overall);
+      setTile('tile-technical',     scores.technical);
+      setTile('tile-communication', scores.communication);
+      setTile('tile-confidence',    scores.confidence);
+      setTile('tile-depth',         scores.problem_solving);
+
+      // ── Dimension breakdown ──────────────────────────────────
+      // Looks for lowercase keys first (as built by interview.js avgDimensions),
+      // then falls back to scores.dimensions
+      const dimDefs = [
+        { label: 'Accuracy',  key: 'accuracy'  },
+        { label: 'Depth',     key: 'depth'     },
+        { label: 'Clarity',   key: 'clarity'   },
+        { label: 'Relevance', key: 'relevance' },
+      ];
+      const dimWrap = document.getElementById('dim-breakdown');
+      const dimVals = scores.dimensions || {};
+      let dimHtml   = '';
+      dimDefs.forEach(d => {
+        const v = dimVals[d.key] || dimVals[d.label] || 0;
+        dimHtml += `
+          <div class="dim-row">
+            <div class="dim-row-label">${d.label}</div>
+            <div class="dim-bar-wrap">
+              <div class="dim-bar-fill" style="width:${v}%"></div>
+            </div>
+            <div class="dim-bar-score">${v}</div>
+          </div>`;
+      });
+      if (dimWrap) dimWrap.innerHTML = dimHtml;
+
+      // ── NLP insights ─────────────────────────────────────────
+      const confVal   = nlp.confidence || 0;
+      const confColor = confVal > 70 ? '#4ade80' : confVal > 45 ? '#fbbf24' : '#f87171';
+      const confEl    = document.getElementById('nlp-confidence');
+      if (confEl) { confEl.textContent = confVal + '%'; confEl.style.color = confColor; }
+
+      const fillersEl = document.getElementById('nlp-fillers');
+      if (fillersEl) fillersEl.textContent = nlp.fillerCount || 0;
+
+      const wpmEl = document.getElementById('nlp-wpm');
+      if (wpmEl) wpmEl.textContent = nlp.wpm || '—';
+
+      const sentimentObj = nlp.sentiment || { label: 'neutral', score: 0 };
+      const sentColor    = sentimentObj.label === 'positive' ? '#4ade80'
+                         : sentimentObj.label === 'negative'  ? '#f87171' : '#94a3b8';
+      const sentEl = document.getElementById('nlp-sentiment');
+      if (sentEl) { sentEl.textContent = sentimentObj.label; sentEl.style.color = sentColor; }
+
+      const needlePct = Math.round(((sentimentObj.score || 0) + 1) / 2 * 100);
+      const needleEl  = document.getElementById('sentiment-needle');
+      if (needleEl) needleEl.style.left = needlePct + '%';
+
+      // Keyword cloud
+      const keywords = nlp.keywords || [];
+      const cloudEl  = document.getElementById('keyword-cloud');
+      if (cloudEl) {
+        if (keywords.length) {
+          const maxCount = keywords[0].count || 1;
+          cloudEl.innerHTML = keywords.map(kw => {
+            const size = kw.count / maxCount;
+            const cls  = size > 0.75 ? 'big' : size < 0.35 ? 'small' : '';
+            return `<span class="kw-tag ${cls}">${kw.word}</span>`;
+          }).join('');
+        } else {
+          cloudEl.innerHTML = '<span style="color:var(--text-muted);font-size:13px">No keywords extracted.</span>';
+        }
+      }
+
+      // ── Q&A breakdown ────────────────────────────────────────
+      const qaList = document.getElementById('qa-list');
+      if (qaList) {
+        evals.forEach((ev, i) => {
+          const score      = ev.score || 0;
+          const scoreColor = score >= 75 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171';
+
+          // ── FIX 10: keywords are nested under ev.nlp.keywords ──
+          // Old code used ev.keywords which was always undefined
+          const kwSource = (ev.nlp && ev.nlp.keywords) ? ev.nlp.keywords : (ev.keywords || []);
+          const kwHtml   = kwSource.slice(0, 5)
+            .map(k => `<span class="kw-tag small">${k.word || k}</span>`)
+            .join('');
+
+          const item = document.createElement('div');
+          item.className = 'qa-item';
+          item.innerHTML = `
+            <div class="qa-q" role="button" aria-expanded="false"
+                 aria-controls="qa-body-${i}" tabindex="0">
+              <span>Q${i + 1}. ${ev.question || '—'}</span>
+              <span class="qa-score-badge" style="color:${scoreColor}">${score}</span>
+            </div>
+            <div class="qa-a" id="qa-body-${i}">
+              <strong style="color:var(--text);font-size:12px;text-transform:uppercase;letter-spacing:.5px">
+                Your answer
+              </strong>
+              <p style="margin-top:6px">${ev.answer || '(no answer)'}</p>
+              <div class="qa-feedback">${ev.feedback || ''}</div>
+              ${kwHtml ? `<div class="qa-keywords">${kwHtml}</div>` : ''}
+            </div>`;
+
+          const qRow = item.querySelector('.qa-q');
+          qRow.addEventListener('click', () => {
+            item.classList.toggle('open');
+            qRow.setAttribute('aria-expanded', item.classList.contains('open'));
+          });
+          qRow.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); qRow.click(); }
+          });
+
+          qaList.appendChild(item);
+        });
+      }
+
+      // ── Proctoring ───────────────────────────────────────────
+      const risk      = proctor.risk_level || 'Low';
+      const riskBadge = document.getElementById('risk-badge');
+      const riskDesc  = document.getElementById('risk-desc');
+      if (riskBadge) {
+        riskBadge.className   = `risk-badge risk-${risk.toLowerCase()}`;
+        riskBadge.textContent =
+          risk === 'Low'    ? '🟢 Low Risk'    :
+          risk === 'Medium' ? '🟡 Medium Risk' : '🔴 High Risk';
+      }
+      if (riskDesc) {
+        riskDesc.textContent =
+          risk === 'Low'    ? 'No significant integrity issues detected.'          :
+          risk === 'Medium' ? 'A few anomalies were noted during the session.'     :
+                              'Multiple high-severity events detected — review log below.';
+      }
+
+      const log    = proctor.log || [];
+      const evtsEl = document.getElementById('proctor-events');
+      if (evtsEl) {
+        if (log.length === 0) {
+          evtsEl.innerHTML = `
+            <div class="proctor-event" style="color:#4ade80">
+              <div class="dot" style="background:#4ade80"></div>
+              Session completed without alerts.
+            </div>`;
+        } else {
+          evtsEl.innerHTML = log.map(ev => {
+            const dotColor = ev.severity === 'high'   ? '#f87171'
+                           : ev.severity === 'medium' ? '#fbbf24' : '#4ade80';
+            return `
+              <div class="proctor-event">
+                <div class="dot" style="background:${dotColor}"></div>
+                <span>${ev.message}</span>
+                <span style="margin-left:auto;font-size:11px;opacity:.6">${ev.severity}</span>
+              </div>`;
+          }).join('');
+        }
+      }
+
+      // ── Export ───────────────────────────────────────────────
+      const exportBtn = document.getElementById('export-btn');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+          const blob = new Blob(
+            [JSON.stringify(reportData, null, 2)],
+            { type: 'application/json' }
+          );
+          const a    = document.createElement('a');
+          a.href     = URL.createObjectURL(blob);
+          a.download = `interview-report-${Date.now()}.json`;
+          a.click();
+        });
+      }
+    }
+
+    // Boot
+    loadReport();
+
+  })();
+  </script>
+</body>
+</html>

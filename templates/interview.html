@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview — AI Interviewer</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { background: var(--bg); }
+
+    .interview-wrap {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+      max-width: 1160px;
+      margin: 84px auto 40px;
+      padding: 0 24px;
+      align-items: start;
+    }
+
+    .camera-panel { position: sticky; top: 80px; }
+
+    .camera-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      position: relative;
+    }
+    .camera-box canvas,
+    .camera-box video {
+      width: 100%;
+      display: block;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+    }
+    #webcam-video { display: none; }
+
+    #webcam-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    .camera-status {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .3px;
+      color: #4ade80;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #camera-status-badge { flex: 1; transition: color .3s; }
+
+    .cheat-log {
+      margin-top: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+    .cheat-log h4 {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+    .cheat-item {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cheat-item:last-child { border-bottom: none; }
+    .cheat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .cheat-dot.high   { background: #f87171; }
+    .cheat-dot.medium { background: #fbbf24; }
+    .cheat-dot.low    { background: #4ade80; }
+
+    .qa-panel { display: flex; flex-direction: column; gap: 20px; }
+
+    .progress-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+    }
+    .progress-header h2 {
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .q-counter { font-size: 13px; color: var(--accent); font-weight: 600; }
+    .q-progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .q-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 4px;
+      transition: width .4s ease;
+    }
+
+    .question-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+    }
+    .question-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 12px;
+    }
+    #question-text {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .voice-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+    }
+    .voice-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+
+    #mic-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--border-glow);
+      background: rgba(108,99,255,.08);
+      cursor: pointer;
+      font-size: 20px;
+      transition: all .2s;
+      flex-shrink: 0;
+    }
+    #mic-btn:hover { border-color: var(--accent); background: rgba(108,99,255,.15); }
+    #mic-btn.listening {
+      border-color: #f87171;
+      background: rgba(239,68,68,.15);
+      animation: micPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes micPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.3); }
+      50%      { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    }
+
+    #voice-display {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 13px;
+      min-height: 28px;
+    }
+    .waveform { display: flex; align-items: center; gap: 3px; }
+    .wave-bar {
+      width: 3px;
+      background: var(--accent);
+      border-radius: 3px;
+      animation: waveBounce .8s ease-in-out infinite alternate;
+    }
+    .wave-bar:nth-child(1) { height: 12px; animation-delay: 0s; }
+    .wave-bar:nth-child(2) { height: 20px; animation-delay: .1s; }
+    .wave-bar:nth-child(3) { height: 16px; animation-delay: .2s; }
+    .wave-bar:nth-child(4) { height: 22px; animation-delay: .15s; }
+    .wave-bar:nth-child(5) { height: 10px; animation-delay: .05s; }
+    @keyframes waveBounce { from { transform: scaleY(1); } to { transform: scaleY(2.5); } }
+
+    #nlp-badge { font-family: var(--font-body); }
+
+    #answer-text {
+      width: 100%;
+      min-height: 110px;
+      background: rgba(108,99,255,.04);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      padding: 14px;
+      resize: vertical;
+      transition: border-color .2s;
+      box-sizing: border-box;
+    }
+    #answer-text:focus { outline: none; border-color: var(--accent); }
+
+    .action-row { display: flex; gap: 12px; }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      color: #fff;
+      border: none;
+      padding: 14px 24px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      box-shadow: 0 6px 24px rgba(108,99,255,.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(108,99,255,.45); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-secondary:disabled { opacity: .4; cursor: not-allowed; }
+
+    .feedback-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      animation: fadeIn .4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+    .score-row { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+    .score-circle {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 800;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .score-circle::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid currentColor;
+      opacity: .3;
+    }
+    .score-feedback { color: var(--text-sub); font-size: 14px; line-height: 1.6; }
+
+    .dim-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
+    .dim-item { font-size: 12px; color: var(--text-muted); }
+    .dim-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .dim-bar { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .dim-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
+
+    @media (max-width: 860px) {
+      .interview-wrap { grid-template-columns: 1fr; margin-top: 74px; }
+      .camera-panel { position: static; }
+      .dim-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-logo">AI<span>Interviewer</span></div>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/interview" class="active" aria-current="page">Interview</a>
+      <a href="/report">Reports</a>
+    </div>
+  </nav>
+
+  <main class="interview-wrap" id="app" role="main">
+
+    <aside class="camera-panel" aria-label="Camera monitoring">
+      <div class="camera-box">
+        <video id="webcam-video" autoplay muted playsinline aria-hidden="true"></video>
+        <canvas id="webcam-canvas" aria-label="Live webcam with face tracking overlay"></canvas>
+        <img id="webcam-overlay" style="display:none;" alt="" aria-hidden="true" />
+        <div class="camera-status">
+          <span id="camera-status-badge" role="status" aria-live="polite">
+            🟡 Initialising camera…
+          </span>
+        </div>
+      </div>
+
+      <div class="cheat-log" aria-label="Proctoring log" role="log" aria-live="polite">
+        <h4>Proctoring Log</h4>
+        <div id="cheat-log-list">
+          <div class="cheat-item">
+            <div class="cheat-dot low"></div>
+            <span>Waiting for session to start…</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="qa-panel" aria-label="Interview questions and answers">
+
+      <div class="progress-header">
+        <h2 id="interview-title">Interview Session</h2>
+        <span class="q-counter" id="q-counter" aria-live="polite">Question 1 of 18</span>
+        <div class="q-progress-bar" aria-hidden="true">
+          <div class="q-progress-fill" id="q-progress-fill" style="width:10%"></div>
+        </div>
+      </div>
+
+      <div class="question-card">
+        <div class="question-label">Question</div>
+        <p id="question-text" role="heading" aria-level="3">
+          Loading your personalised questions…
+        </p>
+      </div>
+
+      <div class="voice-section" aria-label="Voice answer input">
+        <div class="voice-row">
+          <button id="mic-btn" title="Start Recording" aria-label="Start voice recording">🎤</button>
+          <div id="voice-display" aria-live="polite">
+            <span id="voice-text">Click mic or type answer…</span>
+          </div>
+        </div>
+
+        <textarea id="answer-text"
+                  placeholder="Your answer appears here as you speak, or type manually…"
+                  aria-label="Your answer"></textarea>
+
+        <div class="action-row" style="margin-top:14px">
+          <button class="btn-secondary" id="skip-btn" disabled aria-label="Skip this question">Skip</button>
+          <button class="btn-primary"   id="submit-btn" disabled aria-label="Submit answer">Submit Answer →</button>
+        </div>
+      </div>
+
+      <div class="feedback-card" id="feedback-card" style="display:none;"
+           aria-live="polite" role="region" aria-label="AI feedback">
+        <div class="score-row">
+          <div class="score-circle" id="score-circle" style="color:#6c63ff;background:rgba(108,99,255,.1)">
+            <span id="score-num">—</span>
+          </div>
+          <div>
+            <div style="font-weight:700;color:var(--text);margin-bottom:4px">AI Feedback</div>
+            <div class="score-feedback" id="score-feedback">Evaluating your answer…</div>
+          </div>
+        </div>
+        <div class="dim-grid" id="dim-grid"></div>
+        <div class="action-row" style="margin-top:20px">
+          <button class="btn-primary" id="next-btn">Next Question →</button>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ── Scripts: NO defer — placed at bottom of body so DOM is ready ── -->
+  <script src="/static/js/speech.js"></script>
+  <script src="/static/js/camera.js"></script>
+  <script src="/static/js/interview.js"></script>
+
+  <!-- ── Init camera + speech AFTER everything is loaded ── -->
+  <script>
+    window.addEventListener('load', function () {
+
+      // ── Camera init ──────────────────────────────────────────
+      if (typeof CameraModule !== 'undefined') {
+
+        var videoEl   = document.getElementById('webcam-video');
+        var canvasEl  = document.getElementById('webcam-canvas');
+        var overlayEl = document.getElementById('webcam-overlay');
+
+        if (videoEl && canvasEl) {
+          CameraModule.init({
+            videoEl      : videoEl,
+            canvasEl     : canvasEl,
+            overlayImgEl : overlayEl,
+          }).then(function (ok) {
+            if (ok) {
+              console.log('[Camera] ✅ Initialised');
+              document.getElementById('camera-status-badge').textContent = '🟡 Detecting face…';
+            } else {
+              console.error('[Camera] ❌ Failed to initialise');
+              document.getElementById('camera-status-badge').textContent = '❌ Camera failed';
+            }
+          }).catch(function (e) {
+            console.error('[Camera] Error:', e.message);
+            document.getElementById('camera-status-badge').textContent = '❌ ' + e.message;
+          });
+        } else {
+          console.error('[Camera] webcam-video or webcam-canvas element not found');
+        }
+
+      } else {
+        console.error('[Camera] CameraModule not loaded — check camera.js path');
+      }
+
+      // ── Speech init ──────────────────────────────────────────
+      if (typeof SpeechModule !== 'undefined') {
+
+        var speechOk = SpeechModule.init();
+
+        if (speechOk) {
+          console.log('[Speech] ✅ Initialised');
+        } else {
+          console.warn('[Speech] ❌ Not supported — use Chrome or Edge');
+        }
+
+        // Pipe transcript into answer textarea in real time
+        SpeechModule.onResult(function (result) {
+          var ta = document.getElementById('answer-text');
+          if (ta) ta.value = result.clean || result.full || '';
+        });
+
+        // Wire mic button
+        var micBtn = document.getElementById('mic-btn');
+        if (micBtn) {
+          micBtn.onclick = function () {
+            SpeechModule.toggleListening();
+          };
+        }
+
+      } else {
+        console.error('[Speech] SpeechModule not loaded — check speech.js path');
+      }
+
+    });
+  </script>
+
+</body>
+</html>

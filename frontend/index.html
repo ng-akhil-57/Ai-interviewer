@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+
+<title>AI Interviewer — Smart HR Platform</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+</head>
+
+<body class="landing-body">
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-logo">AI<span>Interviewer</span></div>
+
+  <div class="nav-links">
+    <a href="#how">How It Works</a>
+    <a href="#features">Features</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+
+  <div class="hero-bg"></div>
+
+  <div class="hero-content">
+
+    <div class="hero-badge">
+      🎯 Powered by BERT + T5 + Claude AI
+    </div>
+
+    <h1>
+      Your Personal <br>
+      <span class="gradient-text">AI HR Interviewer</span>
+    </h1>
+
+    <p class="hero-sub">
+      Upload your resume. Get analysed. Face a real AI-powered interview —
+      personalised to your skills, domain, and experience.
+    </p>
+
+    <!-- Upload Card -->
+    <div class="upload-card" id="uploadCard">
+
+      <!-- Upload Zone -->
+      <div class="upload-zone" id="dropZone">
+
+        <input
+          type="file"
+          id="fileInput"
+          accept=".pdf"
+          hidden
+        >
+
+        <div class="upload-icon">📄</div>
+
+        <h3>Drop your Resume PDF here</h3>
+
+        <p>
+          or
+          <span class="upload-link">
+            browse to upload
+          </span>
+        </p>
+
+        <div class="upload-hint">
+          PDF only · Max 10MB
+        </div>
+
+      </div>
+
+      <!-- Upload Progress -->
+      <div
+        class="upload-progress"
+        id="uploadProgress"
+        style="display:none"
+      >
+
+        <div class="progress-bar-wrap">
+          <div
+            class="progress-bar-fill"
+            id="progressFill"
+          ></div>
+        </div>
+
+        <div
+          class="progress-label"
+          id="progressLabel"
+        >
+          Uploading...
+        </div>
+
+      </div>
+
+      <!-- Analysis Result -->
+      <div
+        class="analysis-result"
+        id="analysisResult"
+        style="display:none"
+      >
+
+        <div class="result-header">
+
+          <div class="result-avatar">👤</div>
+
+          <div>
+            <div
+              class="result-name"
+              id="resultName"
+            >
+              —
+            </div>
+
+            <div
+              class="result-domain"
+              id="resultDomain"
+            >
+              —
+            </div>
+          </div>
+
+        </div>
+
+        <div
+          class="result-tags"
+          id="resultTags"
+        ></div>
+
+        <button
+          class="start-btn"
+          id="startBtn"
+        >
+          🎙 Start Interview →
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section" id="how">
+
+  <h2 class="section-title">
+    How It Works
+  </h2>
+
+  <div class="steps-grid">
+
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <div class="step-icon">📄</div>
+
+      <h3>Upload Resume</h3>
+
+      <p>
+        Drop your PDF resume. Our BERT model reads and deeply analyses
+        your skills, experience, projects and domain.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <div class="step-icon">🧠</div>
+
+      <h3>AI Generates Questions</h3>
+
+      <p>
+        T5 + Claude AI creates personalised interview questions
+        based specifically on your background.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <div class="step-icon">🎙</div>
+
+      <h3>Interview with Camera & Voice</h3>
+
+      <p>
+        Answer via voice or text. Your camera is monitored
+        for integrity.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">04</div>
+      <div class="step-icon">📊</div>
+
+      <h3>Get Detailed Report</h3>
+
+      <p>
+        Receive a full HR evaluation — score, strengths,
+        weaknesses, and hiring recommendation.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section dark-section" id="features">
+
+  <h2 class="section-title">
+    Features
+  </h2>
+
+  <div class="features-grid">
+
+    <div class="feature-item">
+      <span>🔒</span>
+
+      <div>
+        <h4>Anti-Cheat Monitoring</h4>
+        <p>Real-time face detection, gaze tracking, tab switch alerts</p>
+      </div>
+    </div>
+
+    <div class="feature-item">
+      <span>🎙</span>
+
+      <div>
+        <h4>Voice Answers</h4>
+        <p>Speak naturally — AI transcribes your voice in real time</p>
+      </div>
+    </div>
+
+    <div class="feature-item">
+      <span>🧠</span>
+
+      <div>
+        <h4>BERT Resume Analysis</h4>
+        <p>Deep NLP understanding of your resume structure</p>
+      </div>
+    </div>
+
+    <div class="feature-item">
+      <span>❓</span>
+
+      <div>
+        <h4>Smart Questions</h4>
+        <p>T5 model generates contextual questions from your resume</p>
+      </div>
+    </div>
+
+    <div class="feature-item">
+      <span>📊</span>
+
+      <div>
+        <h4>Detailed Report</h4>
+        <p>Score, per-question feedback, HR recommendation</p>
+      </div>
+    </div>
+
+    <div class="feature-item">
+      <span>🌐</span>
+
+      <div>
+        <h4>Multi-Domain</h4>
+        <p>Works for Data Science, SWE, Web Dev, Cloud, and more</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div>
+    AI Interviewer · Built for Data Science Students ·
+    Powered by BERT, T5 & Claude
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Interviewer — Smart Interview Practice</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── v2 additions for index page ── */
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px;
+      transition: border-color .25s, transform .25s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+    }
+    .feature-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .feature-card h3 {
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(74,222,128,.1);
+      border: 1px solid rgba(74,222,128,.25);
+      color: #4ade80;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-top: 10px;
+    }
+    /* Oval preview graphic */
+    .oval-demo-wrap {
+      display: flex;
+      justify-content: center;
+      margin: 40px 0 60px;
+    }
+    .oval-demo {
+      position: relative;
+      width: 220px;
+      height: 260px;
+    }
+    .oval-demo-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(108,99,255,.12) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .oval-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      animation: ovalPulse 2.2s ease-in-out infinite;
+    }
+    .oval-ring.green {
+      inset: 0;
+      border-color: #4ade80;
+      box-shadow: 0 0 24px rgba(74,222,128,.35);
+    }
+    .oval-ring.glow1 {
+      inset: -8px;
+      border-color: rgba(74,222,128,.2);
+      animation-delay: .2s;
+    }
+    .oval-ring.glow2 {
+      inset: -16px;
+      border-color: rgba(74,222,128,.08);
+      animation-delay: .4s;
+    }
+    .oval-icon {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+    }
+    .oval-dot {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 10px #4ade80;
+      border: 2px solid rgba(255,255,255,.3);
+    }
+    @keyframes ovalPulse {
+      0%,100% { opacity: .7; transform: scale(1); }
+      50%      { opacity: 1;  transform: scale(1.03); }
+    }
+    /* Step cards */
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      position: relative;
+    }
+    .step-num {
+      font-family: var(--font-head);
+      font-size: 48px;
+      font-weight: 800;
+      color: rgba(108,99,255,.15);
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .step-card h3 {
+      font-family: var(--font-head);
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .step-card p { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+    /* Nav active state */
+    .nav-links a.active { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAVBAR ──────────────────────────────────── -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-logo">AI<span>Interviewer</span></div>
+    <div class="nav-links">
+      <a href="/" class="active" aria-current="page">Home</a>
+      <a href="/interview">Interview</a>
+      <a href="/report">Reports</a>
+    </div>
+  </nav>
+
+  <!-- ── HERO ────────────────────────────────────── -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="hero-bg" aria-hidden="true"></div>
+
+    <div class="hero-content">
+      <div class="hero-badge" role="note">
+        <span>✦</span> Built by Akhil N G
+      </div>
+
+      <h1 id="hero-heading">
+        AI HR <br /><span class="gradient-text">Interviewer</span>
+      </h1>
+
+      <p class="hero-sub">
+        Upload your résumé. Get personalised questions. Answer with your voice.
+        Receive instant AI feedback — all in one session.
+      </p>
+
+    
+      <!-- ── Upload Card ── -->
+      <div class="upload-card" role="region" aria-label="Resume upload">
+        <!-- Drop zone -->
+        <div class="upload-zone" id="dropZone" role="button"
+             aria-label="Drop PDF here or click to browse" tabindex="0">
+          <span class="upload-icon" aria-hidden="true">📄</span>
+          <h3>Drop your résumé here</h3>
+          <p>or <span class="upload-link">browse files</span></p>
+          <p class="upload-hint">PDF only · max 10 MB</p>
+          <input type="file" id="fileInput" accept=".pdf"
+                 style="display:none" aria-label="Upload PDF résumé" />
+        </div>
+
+        <!-- Progress -->
+        <div class="upload-progress" id="uploadProgress" style="display:none"
+             role="status" aria-live="polite">
+          <div class="progress-bar-wrap" aria-hidden="true">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+          <p class="progress-label" id="progressLabel">Uploading résumé…</p>
+        </div>
+
+        <!-- Result -->
+        <div class="analysis-result" id="analysisResult" style="display:none"
+             role="region" aria-label="Analysis result">
+          <div class="result-header">
+            <div class="result-avatar" aria-hidden="true">🧑</div>
+            <div>
+              <div class="result-name" id="resultName">Candidate</div>
+              <div class="result-domain" id="resultDomain">Domain</div>
+            </div>
+          </div>
+          <div class="result-tags" id="resultTags" aria-label="Detected skills"></div>
+          <button class="start-btn" id="startBtn" aria-label="Start interview">
+            Start Interview →
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ────────────────────────────── -->
+  <section class="dark-section" aria-labelledby="steps-heading">
+    <div style="max-width:1100px;margin:0 auto">
+      <h2 class="section-title" id="steps-heading">How It Works</h2>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">01</div>
+          <h3>Upload Résumé</h3>
+          <p>Our AI extracts your skills, projects, and domain automatically from your PDF.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">02</div>
+          <h3>Face-Verified Session</h3>
+          <p>An oval frame monitors your presence. The ring turns green when you're perfectly framed.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">03</div>
+          <h3>Speak Your Answers</h3>
+          <p>Voice recognition captures your response. NLP strips filler words and extracts key insights live.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">04</div>
+          <h3>Instant AI Feedback</h3>
+          <p>Claude scores accuracy, depth, clarity, and confidence — with actionable improvement tips.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ────────────────────────────────── -->
+  <section class="section" aria-labelledby="features-heading">
+    <h2 class="section-title" id="features-heading">What Makes Us Different</h2>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">🟢</span>
+        <h3>Live Oval Frame Monitor</h3>
+        <p>
+          OpenCV draws a real-time face-framing oval on your webcam feed.
+          The glow ring shifts from green → amber → red based on detection status,
+          so you always know if you're properly centred.
+        </p>
+        <span class="pill-badge">✦ New in v2</span>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">🧠</span>
+        <h3>NLP Voice Processing</h3>
+        <p>
+          Filler words (um, uh, like…) are stripped in real-time.
+          Keyword extraction surfaces the most relevant terms in your answer.
+          Confidence scoring measures your speech pace, hesitation rate, and vocabulary richness.
+        </p>
+        <span class="pill-badge">✦ New in v2</span>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">🎙️</span>
+        <h3>Voice Sentiment Analysis</h3>
+        <p>
+          Every answer is analysed for tone — positive, neutral, or negative —
+          giving you feedback on how your language comes across to interviewers.
+        </p>
+        <span class="pill-badge">✦ New in v2</span>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">🤖</span>
+        <h3>Claude-Powered Evaluation</h3>
+        <p>
+          Anthropic's Claude evaluates every answer across accuracy, depth, clarity,
+          and relevance — returning structured scores with specific strengths and improvements.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">🛡️</span>
+        <h3>Anti-Cheat Proctoring</h3>
+        <p>
+          Face absence, multiple faces, gaze deviation, and tab-switching are
+          all detected and logged. A full risk report is generated at the end.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <span class="feature-icon" aria-hidden="true">📊</span>
+        <h3>Detailed Report</h3>
+        <p>
+          Review scores by question, dimension breakdowns, keyword highlights,
+          NLP confidence trends, and proctoring logs — all in one export-ready report.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── FOOTER ───────────────────────────────────── -->
+  <footer class="footer" role="contentinfo">
+    <p>AI Interviewer v2 — Built with Flask, MediaPipe, OpenCV &amp; Claude by Anthropic</p>
+  </footer>
+
+  <script src="/static/js/upload.js"></script>
+</body>
+</html>
